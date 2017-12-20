@@ -1,0 +1,199 @@
+function onObjectEnterScriptingZone(zone_entered, enter_object)
+
+    if enter_object.name == 'Card' or enter_object.name == 'Deck' then
+        enter_object.setVar('currentZone', zone_entered)
+    end
+    --[[enter_object.setVar('inScriptingZone', true)--]]
+end
+
+function onObjectLeaveScriptingZone(zone_left, left_object)
+    if left_object.name == 'Deck' then
+        if left_object.getName() == '' then
+            left_object.setName(zone_left.getName())
+        end
+    end
+
+    --[[Make function to check for null/empty values more easily--]]
+    if left_object.name == 'Deck' or left_object.name == 'Card' then
+        if left_object.getVar('currentZone') != '' and
+        left_object.getVar('currentZone').getName() == zone_left.getName() then
+            left_object.setVar('currentZone', '')
+            --[[left_object.setVar('inScriptingZone', false)--]]
+        end
+    end
+end
+
+--[[Action Functions!--]]
+--[[Should change to when object is resting so that new position is set on dropped objects snapped location]]
+function onObjectDrop(playerColor, droppedObject)
+    if droppedObject.name == 'Custom_Tile' then
+        local player = Global.getVar(playerColor)
+        local zone = droppedObject.getName()
+
+        if zone == 'deck' then
+            player.deck_scriptZone.setPosition(droppedObject.getPosition())
+        elseif zone == 'graveyard' then
+            player.graveyard_scriptZone.setPosition(droppedObject.getPosition())
+        elseif zone == 'exile' then
+            player.exile_scriptZone.setPosition(droppedObject.getPosition())
+        elseif zone == 'sideboard' then
+            player.sideboard_scriptZone.setPosition(droppedObject.getPosition())
+        elseif zone == 'tokens' then
+            player.tokens_scriptZone.setPosition(droppedObject.getPosition())
+        end
+    elseif droppedObject.name == 'Card' then
+        local currentCardZone = droppedObject.getVar('currentZone')
+        
+        if currentCardZone == nil then
+            currentCardZone = ''
+        end
+
+        if currentCardZone != '' and currentCardZone.getName() != 'battlefield' then
+            onCardMoveZones({stationaryObject = currentCardZone, movingObject = droppedObject})
+        end
+     elseif droppedObject.name == 'Deck' then
+         local currentDeckZone = droppedObject.getVar('currentZone')
+         if currentDeckZone != '' then
+             onDeckMoveZones({stationaryObject = currentDeckZone, movingObject = droppedObject})
+         end
+     end
+ end
+
+ function onCardMoveZones(parms)
+
+     --[[Get Parms--]]
+     local card_name = parms.movingObject.getName()
+     local card_currentLocation = parms.stationaryObject.getName()
+     local card_previousLocation = parms.movingObject.getVar('lastLocation')
+     local from = ''
+
+     --[[Print a log message--]]
+     if card_previousLocation != nil then
+         from = ' from ' .. card_previousLocation
+     end
+
+     if card_previousLocation != card_currentLocation then
+         printToAll(card_name .. ' moved to ' .. card_currentLocation .. from, {100, 148, 244})
+     end
+
+     --[[Save card's current location as last location for next time it moves--]]
+     parms.movingObject.setVar('lastLocation', card_currentLocation)
+ end
+
+ function onDeckMoveZones(parms)
+
+     --[[Get Parms--]]
+     local deck_currentLocation = parms.stationaryObject.getName()
+     local deck_previousLocation = parms.movingObject.getVar('lastLocation')
+     local cards = ''
+
+     --[[Determine name of cards to use in log--]]
+     if deck_previousLocation != nil and deck_previousLocation == 'battlefield' then
+         cards = listCardsInDeck(parms.movingObject)
+     end
+
+     if deck_previousLocation != nil and deck_previousLocation != 'battlefield' then
+         cards = deck_previousLocation
+     end
+
+     --[[Print a log message--]]
+     if cards != nil and deck_previousLocation != deck_currentLocation then
+         printToAll(cards .. ' moved to ' .. deck_currentLocation, {100, 148, 244})
+         parms.movingObject.setVar('currentZone', '')
+     end
+
+     --[[Save cards' current location as last location for next time it moves--]]
+     parms.movingObject.setVar('lastLocation', deck_currentLocation)
+ end
+
+ function untapPermanents(cards)
+     local y = Global.getVar(current_Player).untapDegree
+
+     for i, card in pairs(cards) do
+         if card.name == 'Card' then
+             curPos = card.getPosition()
+
+             --[[determine what true untapped position should be]]
+             --[[card.setPositionSmooth({curPos.x,3,curPos.z,false,false})--]]
+             card.setRotationSmooth({0,y,0,false,false})
+         end
+     end
+ end
+
+ function tapPermanents(cards)
+     local y = Global.getVar(current_Player).tapDegree
+     for i, card in pairs(cards) do
+         if card.name == 'Card' then
+             curPos = card.getPosition()
+             card.setPositionSmooth({curPos.x,3,curPos.z})
+             card.setRotationSmooth({0,y,0})
+         end
+     end
+ end
+
+ function onPlayerTurnStart(current_player, previous_player)
+     current_Player = current_player
+     playerObjects = Global.getVar(current_player)
+     cards = playerObjects.battlefield_scriptZone.getObjects()
+
+     --[[if round(v.getRotation().y) == 180 then--]]
+     untapPermanents(cards)
+ end
+
+ --[[Player Initialization!--]]
+ current_Player = 'White'
+
+ function onLoad()
+     battlefield = getObjectFromGUID('0d4a3f')
+
+     White = {}
+     White.hand = getObjectFromGUID('3f1707')
+     White.deck = getObjectFromGUID('f46910')
+     White.graveyard = getObjectFromGUID('8e5a04')
+     White.exile = getObjectFromGUID('102f6b')
+     White.sideboard = getObjectFromGUID('39dc79')
+     White.tokens = getObjectFromGUID('8c042e')
+     White.deck_scriptZone = getObjectFromGUID('28d4b6')
+     White.battlefield_scriptZone = getObjectFromGUID('9e0ac6')
+     White.graveyard_scriptZone = getObjectFromGUID('6f8a59')
+     White.exile_scriptZone = getObjectFromGUID('08ad17')
+     White.sideboard_scriptZone = getObjectFromGUID('19cf75')
+     White.tokens_scriptZone = getObjectFromGUID('ed08ff')
+     White.untapDegree = 180
+     White.tapDegree = 270
+
+     Green = {}
+     Green.hand = getObjectFromGUID('8a78af')
+     Green.deck = getObjectFromGUID('dcc790')
+     Green.graveyard = getObjectFromGUID('aea514')
+     Green.exile = getObjectFromGUID('4eb999')
+     Green.sideboard = getObjectFromGUID('33114d')
+     Green.tokens = getObjectFromGUID('055d2b')
+     Green.deck_scriptZone = getObjectFromGUID('fb6594')
+     Green.battlefield_scriptZone = getObjectFromGUID('2097fe')
+     Green.graveyard_scriptZone = getObjectFromGUID('50e73e')
+     Green.exile_scriptZone = getObjectFromGUID('12c823')
+     Green.sideboard_scriptZone = getObjectFromGUID('55f836')
+     Green.tokens_scriptZone = getObjectFromGUID('d547ca')
+     Green.untapDegree = 0
+     Green.tapDegree = 90
+ end
+
+ function listCardsInDeck(deck)
+     local listCards = ''
+
+     for i, card in pairs(deck.getObjects()) do
+         listCards = listCards .. card.nickname .. ', '
+     end
+
+     return listCards:sub(0, listCards:len() - 2)
+ end        --[[Helper Functions--]]
+
+ function round(n)
+     return n % 1 >= 0.5 and math.ceil(n) or math.floor(n)
+ end
+
+ function tableConcat(t1,t2)
+     for i=1,#t2 do
+         t1[#t1+1] = t2[i]
+        end     return t1 end local function isEmpty(s)      return s == nil or s == ''	  end

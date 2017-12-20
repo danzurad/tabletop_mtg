@@ -1,0 +1,12 @@
+function onCollisionEnter(collision_info)
+    --[[print('battlefield Trigger')--]]
+
+
+    if collision_info.collision_object.name == 'Card' then
+        collision_info.collision_object.setVar('currentZone', self)
+        Global.call('onCardMoveZones', {stationaryObject = self, movingObject = collision_info.collision_object})
+    elseif collision_info.collision_object.name == 'Deck'  then
+        collision_info.collision_object.setVar('currentZone', self)
+        Global.call('onDeckMoveZones', {stationaryObject = self, movingObject = collision_info.collision_object})
+    end
+end
